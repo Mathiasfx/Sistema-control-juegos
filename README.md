@@ -1,36 +1,189 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de gestión de pedidos de juegos
 
-## Getting Started
+Panel interno (**Next.js + Firebase Auth/Firestore**) para catálogo de juegos, pedidos, panel mensual y roles **admin** / **operativo**. El detalle funcional está en [PRD.md](./PRD.md).
 
-First, run the development server:
+---
+
+## Requisitos previos
+
+| Herramienta | Notas |
+|-------------|--------|
+| **Node.js** | LTS recomendado (v20 o v22). |
+| **npm** | Incluido con Node. |
+| **Proyecto Firebase** | Con **Authentication** y **Cloud Firestore** habilitados. |
+| **Firebase CLI** *(opcional pero útil)* | Para publicar reglas: `npm i -g firebase-tools` y `firebase login`. |
+
+---
+
+## 1. Configurar Firebase (consola)
+
+### 1.1 Crear proyecto y habilitar servicios
+
+1. [Firebase Console](https://console.firebase.google.com) → **Agregar proyecto**.
+2. Menú **Compilación** → **Authentication** → **Comenzar** → método **Correo electrónico / contraseña** (habilitar).
+3. Menú **Compilación** → **Firestore Database** → **Crear base de datos** (modo producción o de prueba según tu política; las reglas del repo asumen reglas explícitas tras el despliegue).
+
+### 1.2 Credenciales para la app web (variables de entorno)
+
+1. ⚙️ **Configuración del proyecto** → tu app **Web** (`</>`).
+2. Copiá los valores a un archivo **`.env.local`** en la raíz del repo (no lo subas a git; ya está en `.gitignore`).
+
+Usá [`.env.example`](./.env.example) como plantilla:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+En Windows PowerShell:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+Copy-Item .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Completá todas las `NEXT_PUBLIC_FIREBASE_*`. Son **públicas por diseño** en el cliente Firebase; la seguridad está en **Firestore Security Rules** y en **custom claims**, no en ocultar estas claves.
 
-## Learn More
+### 1.3 Dominios autorizados (producción)
 
-To learn more about Next.js, take a look at the following resources:
+En **Authentication** → **Configuración** → **Dominios autorizados**, agregá el dominio donde esté alojada la app (ej. `tu-app.vercel.app`). Sin esto, el login puede fallar en producción.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 2. Reglas e índices de Firestore
 
-## Deploy on Vercel
+El repo incluye [`firestore.rules`](./firestore.rules), [`firestore.indexes.json`](./firestore.indexes.json) y [`firebase.json`](./firebase.json).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Opción A: Firebase CLI
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+firebase login
+firebase use --add   # elegí tu projectId
+firebase deploy --only firestore:rules
+firebase deploy --only firestore:indexes
+```
+
+### Opción B: Consola manual
+
+Copiá el contenido de `firestore.rules` en **Firestore** → **Reglas** → Publicar.
+
+Resumen de reglas:
+
+- **`games`**: lectura si hay sesión; escritura solo **`admin`** (claim `role: "admin"`).
+- **`gamePricing`**: solo **`admin`** (precios).
+- **`orders`**: lectura con sesión; altas/ediciones acordes al PRD; el no-admin no puede cambiar **`paymentStatus`** ni **`createdAt`**; subcolección **`billing`** solo **`admin`**.
+
+Si el token no trae `role: "admin"`, Firestore tratará al usuario como no administrador en esas rutas.
+
+---
+
+## 3. Cuenta de servicio y roles (admin / operativo)
+
+### 3.1 Obtener JSON de servicio (solo para gestión, no para el front)
+
+1. Consola → ⚙️ **Configuración del proyecto** → **Cuentas de servicio**.
+2. **Generar nueva clave privada** → guardá el JSON en un lugar **fuera del repo** y con permisos restrictivos en tu máquina.
+
+### 3.2 Asignar rol a un usuario de Auth
+
+Los roles van en **custom claims** (`role: "admin"` | `"operativo"`). El script usa **firebase-admin** localmente.
+
+**Windows (PowerShell):**
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\ruta\fuera-del-repo\serviceAccount.json"
+npm run set-role -- <UID_DE_AUTH> admin
+```
+
+**Linux / macOS:**
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/ruta/fuera-del-repo/serviceAccount.json"
+npm run set-role -- <UID_DE_AUTH> admin
+```
+
+El **UID** aparece en Firebase → **Authentication** → usuario → columna UID.
+
+Importante: después de cambiar claims, el usuario debe **cerrar sesión y volver a entrar** para que la app lea el rol nuevo.
+
+---
+
+## 4. Desarrollo local
+
+```bash
+npm install
+npm run dev
+```
+
+Abrí [http://localhost:3000](http://localhost:3000). Sin `.env.local` correcto, la app fallará al inicializar Firebase en el navegador.
+
+| Comando | Uso |
+|---------|-----|
+| `npm run dev` | Servidor de desarrollo. |
+| `npm run build` | Build de producción. |
+| `npm run start` | Sirve el build localmente (`next start`). |
+| `npm run lint` | ESLint. |
+| `npm run set-role` | Asignar custom claim (ver sección 3). |
+
+---
+
+## 5. Puesta en marcha productiva (servidor propio o VM)
+
+1. Variables de entorno: mismas **`NEXT_PUBLIC_FIREBASE_*`** que en desarrollo (en el hosting: panel de variables o entorno del proceso).
+2. Build y arranque:
+
+```bash
+npm ci          # opcional en CI: instalación reproducible
+npm run build
+npm run start   # puerto por defecto 3000; en muchos hosts se usa la variable `PORT`
+```
+
+3. HTTPS y dominio: reverse proxy (Nginx, Caddy, etc.) o la plataforma que elijas.
+4. No subas **`GOOGLE_APPLICATION_CREDENTIALS`** ni el JSON de servicio al servidor del **frontend**; solo los necesitás en tu máquina (o en un backend de administración si lo agregás más adelante).
+
+---
+
+## 6. Despliegue en Vercel (referencia)
+
+1. Conectá el repo a [Vercel](https://vercel.com).
+2. En **Settings → Environment Variables**, definí todas las `NEXT_PUBLIC_FIREBASE_*` para **Production** (y **Preview** si usás previews).
+3. **Build command:** `npm run build` (por defecto en proyectos Next).
+4. Agregá el dominio de Vercel en Firebase **Dominios autorizados**.
+
+---
+
+## 7. Modelo de datos (Firestore)
+
+| Colección / ruta | Contenido |
+|------------------|-----------|
+| `games/{id}` | Nombre, descripción, categoría, timestamps (**sin precio**). |
+| `gamePricing/{id}` | `price` (mismo `id` que el juego). Solo **admin** en reglas. |
+| `orders/{id}` | Pedido operativo + `paymentStatus` visible en UI. |
+| `orders/{id}/billing/summary` | Montos, `paymentDate`. Solo **admin**. |
+
+---
+
+## 8. Checklist antes de producción
+
+- [ ] Firestore **reglas** desplegadas (no reglas de prueba abiertas).
+- [ ] **Authentication** con email/contraseña y dominios autorizados correctos.
+- [ ] Al menos un usuario con claim **`admin`** para precios y facturación.
+- [ ] Variables `NEXT_PUBLIC_FIREBASE_*` en el entorno de producción.
+- [ ] `npm run build` sin errores en CI o local.
+- [ ] JSON de cuenta de servicio **no** en el repositorio ni en artefactos del frontend.
+
+---
+
+## 9. Problemas frecuentes
+
+| Síntoma | Qué revisar |
+|---------|-------------|
+| Error al iniciar Firebase en el cliente | `.env.local` incompleto; reiniciá `npm run dev`. |
+| `Missing or insufficient permissions` | Reglas no desplegadas o usuario sin `admin` donde hace falta. |
+| No ve precios / no guarda billing | Falta claim `role: admin`; cerrar sesión y entrar de nuevo. |
+| Login falla solo en producción | Dominio no está en **Dominios autorizados**. |
+
+---
+
+## 10. Enlaces útiles
+
+- [Next.js — Despliegue](https://nextjs.org/docs/app/building-your-application/deploying)
+- [Firebase — Firestore Security Rules](https://firebase.google.com/docs/firestore/security/get-started)
