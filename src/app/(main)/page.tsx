@@ -2,21 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { OrdersGroupedTable } from "@/components/OrdersGroupedTable";
 import { useAuth } from "@/context/AuthContext";
 import {
   computeFinancialKpisForMonth,
   countPendingWork,
   filterOrdersForMonth,
-  orderCrossesCalendarMonths,
 } from "@/lib/dashboard-metrics";
 import { formatYearMonth } from "@/lib/dates";
 import { formatMoney } from "@/lib/formatMoney";
 import { subscribeOrders } from "@/lib/firestore/orders";
-import { timestampToInputDate } from "@/lib/dates";
-import { TableOpenIcon, tableIconButtonClass } from "@/components/TableActionIcons";
 import type { MonthCriterion } from "@/lib/types";
 import type { Order } from "@/lib/types";
-import { WORK_STATUS, PAYMENT_STATUS } from "@/lib/constants";
 
 function defaultYearMonth(): string {
   return formatYearMonth(new Date());
@@ -141,64 +138,11 @@ export default function DashboardPage() {
             Ver todos
           </Link>
         </div>
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-          {filtered.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-zinc-500">
-              No hay pedidos en este mes con el criterio elegido.
-            </p>
-          ) : (
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-100 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-                <tr>
-                  <th className="px-5 py-4 font-medium">Cliente</th>
-                  <th className="px-5 py-4 font-medium">Juego</th>
-                  <th className="px-5 py-4 font-medium">Entrega</th>
-                  <th className="px-5 py-4 font-medium">Estado trabajo</th>
-                  <th className="px-5 py-4 font-medium">Pago</th>
-                  <th className="px-5 py-4 font-medium" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {filtered.map((o) => (
-                  <tr key={o.id} className="hover:bg-zinc-50/80">
-                    <td className="px-5 py-4 font-medium text-zinc-900">
-                      {o.clientName}
-                    </td>
-                    <td className="px-5 py-4 text-zinc-700">
-                      {o.gameNameSnapshot}
-                    </td>
-                    <td className="px-5 py-4 text-zinc-600">
-                      {timestampToInputDate(o.deliveryDate)}
-                    </td>
-                    <td className="px-5 py-4 text-zinc-600">
-                      {WORK_STATUS[o.workStatus]}
-                    </td>
-                    <td className="px-5 py-4 text-zinc-600">
-                      {PAYMENT_STATUS[o.paymentStatus]}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        {orderCrossesCalendarMonths(o) && (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-100">
-                            Pedido en otro mes
-                          </span>
-                        )}
-                        <Link
-                          href={`/pedidos/${o.id}`}
-                          title="Abrir pedido"
-                          aria-label="Abrir pedido"
-                          className={tableIconButtonClass}
-                        >
-                          <TableOpenIcon />
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <OrdersGroupedTable
+          orders={filtered}
+          variant="panel"
+          emptyMessage="No hay pedidos en este mes con el criterio elegido."
+        />
       </section>
     </div>
   );
