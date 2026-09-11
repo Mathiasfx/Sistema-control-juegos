@@ -4,7 +4,8 @@ export type WorkPriorityGroupKey =
   | "overdue"
   | "en_proceso"
   | "pendiente"
-  | "completado";
+  | "completado"
+  | "cancelado";
 
 export const WORK_PRIORITY_GROUP_LABELS: Record<WorkPriorityGroupKey, string> =
   {
@@ -12,6 +13,7 @@ export const WORK_PRIORITY_GROUP_LABELS: Record<WorkPriorityGroupKey, string> =
     en_proceso: "En proceso",
     pendiente: "Pendiente",
     completado: "Completado",
+    cancelado: "Cancelados",
   };
 
 export const WORK_PRIORITY_GROUP_HEADER_CLASS: Record<
@@ -22,6 +24,7 @@ export const WORK_PRIORITY_GROUP_HEADER_CLASS: Record<
   en_proceso: "border-sky-200 bg-sky-50 text-sky-900",
   pendiente: "border-amber-200 bg-amber-50 text-amber-900",
   completado: "border-zinc-200 bg-zinc-50 text-zinc-600",
+  cancelado: "border-zinc-200 bg-zinc-50 text-zinc-400",
 };
 
 const GROUP_ORDER: WorkPriorityGroupKey[] = [
@@ -29,6 +32,7 @@ const GROUP_ORDER: WorkPriorityGroupKey[] = [
   "en_proceso",
   "pendiente",
   "completado",
+  "cancelado",
 ];
 
 export function startOfTodayLocal(): Date {
@@ -37,7 +41,8 @@ export function startOfTodayLocal(): Date {
 }
 
 export function isWorkOverdue(order: Order): boolean {
-  if (order.workStatus === "completado") return false;
+  if (order.workStatus === "completado" || order.workStatus === "cancelado")
+    return false;
   const delivery = order.deliveryDate.toDate();
   const deliveryDay = new Date(
     delivery.getFullYear(),
@@ -56,6 +61,7 @@ export function compareByDeliveryDateAsc(a: Order, b: Order): number {
 }
 
 export function classifyWorkPriorityGroup(order: Order): WorkPriorityGroupKey {
+  if (order.workStatus === "cancelado") return "cancelado";
   if (order.workStatus === "completado") return "completado";
   if (isWorkOverdue(order)) return "overdue";
   if (order.workStatus === "en_proceso") return "en_proceso";
@@ -76,6 +82,7 @@ export function groupOrdersByWorkPriority(
     en_proceso: [],
     pendiente: [],
     completado: [],
+    cancelado: [],
   };
 
   for (const order of orders) {

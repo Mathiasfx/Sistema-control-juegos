@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, type ReactNode } from "react";
+import { OrderPaymentStatusBadge } from "@/components/OrderPaymentStatusBadge";
 import { OrderWorkStatusBadge } from "@/components/OrderWorkStatusBadge";
 import {
   TableEditIcon,
   TableOpenIcon,
   tableIconButtonClass,
 } from "@/components/TableActionIcons";
-import { DELIVERY_DATE_OVERDUE_CLASS, PAYMENT_STATUS } from "@/lib/constants";
+import { DELIVERY_DATE_OVERDUE_CLASS } from "@/lib/constants";
 import { timestampToInputDate } from "@/lib/dates";
 import { orderCrossesCalendarMonths } from "@/lib/dashboard-metrics";
 import {
@@ -40,7 +41,8 @@ function DeliveryDateCell({ order }: { order: Order }) {
 
 function CrossMonthBadge() {
   return (
-    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800 ring-1 ring-amber-100">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
       Cruza meses
     </span>
   );
@@ -70,8 +72,8 @@ function ListOrderRow({
       <td className="px-5 py-4">
         <OrderWorkStatusBadge order={order} />
       </td>
-      <td className="px-5 py-4 text-zinc-600">
-        {PAYMENT_STATUS[order.paymentStatus]}
+      <td className="px-5 py-4">
+        <OrderPaymentStatusBadge order={order} />
       </td>
       <td className="px-5 py-4 text-right whitespace-nowrap">
         <div className="flex flex-wrap justify-end gap-2">
@@ -107,14 +109,15 @@ function PanelOrderRow({ order, muted }: { order: Order; muted: boolean }) {
       <td className="px-5 py-4">
         <OrderWorkStatusBadge order={order} />
       </td>
-      <td className="px-5 py-4 text-zinc-600">
-        {PAYMENT_STATUS[order.paymentStatus]}
+      <td className="px-5 py-4">
+        <OrderPaymentStatusBadge order={order} />
       </td>
       <td className="px-5 py-4 text-right">
         <div className="flex justify-end gap-2">
           {orderCrossesCalendarMonths(order) && (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-100">
-              Pedido en otro mes
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+              Otro mes
             </span>
           )}
           <Link
@@ -213,7 +216,8 @@ export function OrdersGroupedTable({
   return (
     <div className="space-y-4">
       {sections.map((section) => {
-        const muted = section.key === "completado";
+        const muted =
+          section.key === "completado" || section.key === "cancelado";
         return (
           <SectionBlock
             key={section.key}
