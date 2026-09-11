@@ -150,7 +150,41 @@ npm run start   # puerto por defecto 3000; en muchos hosts se usa la variable `P
 
 ---
 
-## 7. Modelo de datos (Firestore)
+## 7. Despliegue en Netlify y secret scanning (`AIza`, `NEXT_PUBLIC_*`)
+
+Las variables **`NEXT_PUBLIC_FIREBASE_*`** van al **bundle del cliente** por diseño. Netlify aplica **dos cosas**: detección inteligente (patrones tipo `AIza…`) y escaneo de variables que vos marcaste como **Contains secret values**.
+
+### Regla de oro
+
+- **`NEXT_PUBLIC_FIREBASE_*`**: creálas **sin** *Contains secret values*.
+- Variables de **configuración del escaneo** de Netlify (`SECRETS_SCAN_*`): **tampoco** las marques como secreto. Si las marcaste, **borrá y recreá** la variable igual pero **sin** el flag (Netlify no deja quitar el flag sin borrar).
+
+### Si el log dice `Secret env var "NEXT_PUBLIC_FIREBASE_…"'s value detected`
+
+Esa variable está como secreta pero su valor **ya está** en el JS público → el build falla. Solución: **borrar y recrear** cada `NEXT_PUBLIC_FIREBASE_*` **sin** “Contains secret values”, o definir **`SECRETS_SCAN_OMIT_KEYS`** con los **nombres** (no los valores) de esas claves, por ejemplo:
+
+`NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_FIREBASE_APP_ID,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+
+([docs](https://docs.netlify.com/build/environment-variables/secrets-controller/#configure-secret-scanning)).
+
+### Si el log dice `Secret env var "SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES"'s value detected`
+
+Pasó algo típico: esa variable **quedó marcada como secreta** y su valor incluye fragmentos iguales a lo que ya va en el bundle (por ejemplo la misma API key que `NEXT_PUBLIC_FIREBASE_API_KEY`). El escaneo ve el mismo texto en `.next`/`.netlify` y lo reporta como filtración **de esa variable de Netlify**.
+
+**Qué hacer:** borrá **`SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES`** y volvé a crearla con el mismo contenido (**sin** *Contains secret values*).  
+**Menos lío:** eliminá `SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES` y usá solo **`SECRETS_SCAN_OMIT_KEYS`** (arriba) + **`SECRETS_SCAN_SMART_DETECTION_ENABLED`** = `false` para no depender de listar valores en un safelist ([apagar smart detection](https://docs.netlify.com/manage/security/secret-scanning/#turn-off-smart-detection)).
+
+### Smart detection sólo (`AIza…`)
+
+Si sólo molesta el patrón `AIza` y tus `NEXT_PUBLIC_*` **no** son secretas en Netlify, podés usar **`SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES`** **como variable normal (no secreta)** con los literales permitidos por comas, tal como indica Netlify ([falsos positivos](https://docs.netlify.com/manage/security/secret-scanning/#manage-false-positives)).
+
+---
+
+Conviene registrar el dominio en Firebase **Dominios autorizados** y, si querés, restringir la API key por **HTTP referrer** en Google Cloud.
+
+---
+
+## 8. Modelo de datos (Firestore)
 
 | Colección / ruta | Contenido |
 |------------------|-----------|
@@ -161,7 +195,7 @@ npm run start   # puerto por defecto 3000; en muchos hosts se usa la variable `P
 
 ---
 
-## 8. Checklist antes de producción
+## 9. Checklist antes de producción
 
 - [ ] Firestore **reglas** desplegadas (no reglas de prueba abiertas).
 - [ ] **Authentication** con email/contraseña y dominios autorizados correctos.
@@ -172,7 +206,7 @@ npm run start   # puerto por defecto 3000; en muchos hosts se usa la variable `P
 
 ---
 
-## 9. Problemas frecuentes
+## 10. Problemas frecuentes
 
 | Síntoma | Qué revisar |
 |---------|-------------|
@@ -180,10 +214,11 @@ npm run start   # puerto por defecto 3000; en muchos hosts se usa la variable `P
 | `Missing or insufficient permissions` | Reglas no desplegadas o usuario sin `admin` donde hace falta. |
 | No ve precios / no guarda billing | Falta claim `role: admin`; cerrar sesión y entrar de nuevo. |
 | Login falla solo en producción | Dominio no está en **Dominios autorizados**. |
+| Deploy en Netlify / secret scanning | **Nunca** *Contains secret values* en `NEXT_PUBLIC_FIREBASE_*` ni en `SECRETS_SCAN_*`. Usá `SECRETS_SCAN_OMIT_KEYS`; si falla por `AIza`, opcionalmente `SMART_DETECTION_ENABLED=false` o `SMART_DETECTION_OMIT_VALUES` solo como variable **no** secreta (ver sección 7). |
 
 ---
 
-## 10. Enlaces útiles
+## 11. Enlaces útiles
 
 - [Next.js — Despliegue](https://nextjs.org/docs/app/building-your-application/deploying)
 - [Firebase — Firestore Security Rules](https://firebase.google.com/docs/firestore/security/get-started)
